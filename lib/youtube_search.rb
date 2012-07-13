@@ -4,10 +4,24 @@ require 'open-uri'
 
 module YoutubeSearch
   def self.search(query, options={})
+    @debug = options_with_debug(options)
+
     options = options_with_per_page_and_page(options)
+    debug "query string: " + query.inspect
+    debug "options hash: " + options.inspect
+
     query = options.merge(:q => query).map{|k,v| "#{CGI.escape k.to_s}=#{CGI.escape v.to_s}" }.join('&')
-    xml = open("http://gdata.youtube.com/feeds/api/videos?#{query}").read
-    parse(xml)
+    url = "http://gdata.youtube.com/feeds/api/videos?#{query}"
+    debug "resulting url: " + url
+
+    xml = open(url).read
+    array = parse(xml)
+
+    debug "videos returned: " + array.size.to_s
+		totalresults = get_totalresults(xml)
+		debug "total videos: " + totalresults.to_s
+
+    array
   end
 
   def self.playlist_videos(playlist_id)
@@ -52,6 +66,20 @@ module YoutubeSearch
     Hash[element.children.map do |child|
       [child.name, child.text]
     end]
+  end
+
+  def self.get_totalresults(xml)
+    doc = REXML::Document.new(xml)
+    doc.elements['feed/openSearch:totalResults'].text.to_i
+  end
+
+  def self.options_with_debug(options)
+    return true if options.delete(:debug)
+    false
+  end
+
+  def self.debug(string)
+    puts "[DEBUG] " + string if @debug
   end
 
   def self.options_with_per_page_and_page(options)
